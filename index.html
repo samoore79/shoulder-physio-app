@@ -547,6 +547,11 @@ function saveSession() {
   const data = readFormData();
   if (!data.date) { showToast("Please pick a date"); return; }
 
+  // Prevent double-tap on mobile
+  const btn = document.querySelector(".btn-save");
+  if (btn.disabled) return;
+  btn.disabled = true;
+
   if (editingId) {
     const idx = sessions.findIndex(s => s.id === editingId);
     if (idx !== -1) sessions[idx] = { id: editingId, ...data };
@@ -555,7 +560,7 @@ function saveSession() {
   }
   saveSessions();
   showToast(editingId ? "Session updated ✓" : "Session saved ✓");
-  showHome();
+  setTimeout(showHome, 300);
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
