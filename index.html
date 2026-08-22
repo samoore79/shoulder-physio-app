@@ -89,6 +89,51 @@
     letter-spacing: 0.2px;
   }
   .new-session-btn:active { background: var(--accent-dark); }
+  .export-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #fff;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    width: 100%;
+    cursor: pointer;
+    margin-bottom: 20px;
+    letter-spacing: 0.2px;
+  }
+  .export-btn:active { background: var(--accent-light); }
+  .io-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .io-row .export-btn,
+  .io-row .import-btn {
+    flex: 1;
+    margin-bottom: 0;
+  }
+  .import-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #fff;
+    color: #57906a;
+    border: 2px solid #57906a;
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    width: 100%;
+    cursor: pointer;
+    letter-spacing: 0.2px;
+  }
+  .import-btn:active { background: #edf7f1; }
 
   .session-list { display: flex; flex-direction: column; gap: 10px; }
 
@@ -285,6 +330,11 @@
     </div>
     <div class="screen-body">
       <button class="new-session-btn" onclick="showNewSession()">＋ New Session</button>
+      <div class="io-row">
+        <button class="export-btn" onclick="exportCSV()">↓ Export CSV</button>
+        <button class="import-btn" onclick="document.getElementById('csv-import-input').click()">↑ Import CSV</button>
+        <input type="file" id="csv-import-input" accept=".csv" style="display:none" onchange="importCSV(event)">
+      </div>
       <div id="session-list" class="session-list"></div>
     </div>
   </div>
@@ -571,6 +621,128 @@ function deleteSession() {
   saveSessions();
   showToast("Session deleted");
   showHome();
+}
+
+// ─── Import from CSV ──────────────────────────────────────────────────────────
+function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  // Reset the input so the same file can be re-imported if needed
+  event.target.value = "";
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const lines = e.target.result.split(/\r?\n/).filter(l => l.trim() !== "");
+      if (lines.length < 2) { showToast("CSV appears empty"); return; }
+
+      // Parse a CSV line respecting quoted fields
+      function parseRow(line) {
+        const cells = [];
+        let cur = "", inQuote = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+            else inQuote = !inQuote;
+          } else if (ch === "," && !inQuote) {
+            cells.push(cur); cur = "";
+          } else {
+            cur += ch;
+          }
+        }
+        cells.push(cur);
+        return cells;
+      }
+
+      const imported = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cells = parseRow(lines[i]);
+        // Expected: Date, then (Reps, Weight) × SETS × EXERCISES, then Notes
+        // = 1 + (2 × SETS × EXERCISES.length) + 1 columns
+        const expectedCols = 1 + 2 * SETS * EXERCISES.length + 1;
+        if (cells.length < expectedCols) continue;
+
+        const date = cells[0].trim();
+        if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) continue; // skip malformed rows
+
+        const exercises = [];
+        let col = 1;
+        for (let ei = 0; ei < EXERCISES.length; ei++) {
+          const sets = [];
+          for (let si = 0; si < SETS; si++) {
+            sets.push({
+              r: parseFloat(cells[col]) || 0,
+              w: parseFloat(cells[col + 1]) || 0
+            });
+            col += 2;
+          }
+          exercises.push(sets);
+        }
+        const notes = cells[col] ? cells[col].trim() : "";
+        imported.push({ id: uid(), date, notes, exercises });
+      }
+
+      if (imported.length === 0) { showToast("No valid rows found in CSV"); return; }
+
+      if (!confirm(`Replace all current data with ${imported.length} session(s) from the CSV?`)) return;
+
+      sessions = imported;
+      saveSessions();
+      renderHistory();
+      showToast(`Imported ${imported.length} session(s) ✓`);
+    } catch(err) {
+      showToast("Failed to parse CSV");
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ─── Export to CSV ────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (sessions.length === 0) { showToast("No sessions to export"); return; }
+
+  const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Build header row
+  const headers = ["Date"];
+  EXERCISES.forEach(ex => {
+    for (let s = 1; s <= SETS; s++) {
+      headers.push(`${ex} - Set ${s} Reps`, `${ex} - Set ${s} Weight (kg)`);
+    }
+  });
+  headers.push("Notes");
+
+  // Build data rows
+  const rows = sorted.map(session => {
+    const row = [session.date];
+    session.exercises.forEach(sets => {
+      sets.forEach(set => {
+        row.push(set.r, set.w);
+      });
+    });
+    row.push(session.notes || "");
+    return row;
+  });
+
+  // Serialize to CSV
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(cell => {
+      const val = String(cell);
+      return val.includes(",") || val.includes('"') || val.includes("\n")
+        ? `"${val.replace(/"/g, '""')}"` : val;
+    }).join(","))
+    .join("\n");
+
+  // Trigger download
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "shoulder-physio.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("CSV downloaded ✓");
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
