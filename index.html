@@ -161,26 +161,38 @@
     padding: 14px 16px;
     margin-bottom: 16px;
     box-shadow: var(--shadow);
-    overflow: hidden;
   }
   .form-date-row label { font-size: 13px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .form-date-row input[type="date"] {
+  .date-picker-wrap {
+    position: relative;
+    width: 100%;
+  }
+  .date-display-btn {
     box-sizing: border-box;
     width: 100%;
-    max-width: 100%;
-    min-width: 0;
     border: 1.5px solid var(--border);
     border-radius: 8px;
     padding: 10px 12px;
     font-size: 16px;
     color: var(--text);
     background: var(--bg);
-    outline: none;
-    display: block;
-    -webkit-appearance: none;
-    appearance: none;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
-  .form-date-row input[type="date"]:focus { border-color: var(--accent); }
+  .date-display-btn:focus { border-color: var(--accent); outline: none; }
+  .date-display-btn .cal-icon { font-size: 18px; }
+  .form-date-row input[type="date"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 16px;
+  }
 
   .exercise-card {
     background: var(--surface);
@@ -355,7 +367,13 @@
     <div class="screen-body">
       <div class="form-date-row">
         <label>Date</label>
-        <input type="date" id="session-date" />
+        <div class="date-picker-wrap">
+          <div class="date-display-btn" id="date-display">
+            <span id="date-display-text">Select a date</span>
+            <span class="cal-icon">📅</span>
+          </div>
+          <input type="date" id="session-date" oninput="updateDateDisplay()" />
+        </div>
       </div>
 
       <div id="exercises-container"></div>
@@ -473,6 +491,10 @@ function formatDate(iso) {
   const dt = new Date(y, m - 1, d);
   return dt.toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"long", year:"numeric" });
 }
+function updateDateDisplay() {
+  const val = document.getElementById("session-date").value;
+  document.getElementById("date-display-text").textContent = val ? formatDate(val) : "Select a date";
+}
 function todayISO() {
   const now = new Date();
   const y = now.getFullYear();
@@ -565,6 +587,7 @@ function showNewSession() {
   editingId = null;
   document.getElementById("form-title").textContent = "New Session";
   document.getElementById("session-date").value = todayISO();
+  updateDateDisplay();
   document.getElementById("session-notes").value = "";
   document.getElementById("btn-delete").style.display = "none";
   buildExercisesForm(null);
@@ -579,6 +602,7 @@ function showEditSession(id) {
   editingId = id;
   document.getElementById("form-title").textContent = "Edit Session";
   document.getElementById("session-date").value = session.date;
+  updateDateDisplay();
   document.getElementById("session-notes").value = session.notes || "";
   document.getElementById("btn-delete").style.display = "";
   buildExercisesForm(session.exercises);
