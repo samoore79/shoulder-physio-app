@@ -166,6 +166,7 @@
   .date-picker-wrap {
     position: relative;
     width: 100%;
+    overflow: hidden;
   }
   .date-display-btn {
     box-sizing: border-box;
@@ -181,17 +182,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    pointer-events: none;
   }
-  .date-display-btn:focus { border-color: var(--accent); outline: none; }
-  .date-display-btn .cal-icon { font-size: 18px; }
+  .date-display-btn .cal-icon { font-size: 18px; line-height: 1; }
   .form-date-row input[type="date"] {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     opacity: 0;
     cursor: pointer;
     font-size: 16px;
+    z-index: 2;
   }
 
   .exercise-card {
