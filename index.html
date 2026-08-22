@@ -493,6 +493,9 @@ function showToast(msg) {
 // ─── Home screen ─────────────────────────────────────────────────────────────
 function showHome() {
   editingId = null;
+  // Re-enable save button in case it was disabled by double-tap guard
+  const btn = document.querySelector(".btn-save");
+  if (btn) btn.disabled = false;
   document.getElementById("screen-home").classList.add("active");
   document.getElementById("screen-form").classList.remove("active");
   renderHistory();
